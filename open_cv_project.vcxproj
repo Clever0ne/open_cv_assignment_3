@@ -20,10 +20,12 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\main\fast_furier_transformer.cpp" />
+    <ClCompile Include="src\main\filter.cpp" />
     <ClCompile Include="src\main\main.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\main\fast_furier_transformer.h" />
+    <ClInclude Include="src\main\filter.h" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>16.0</VCProjectVersion>
