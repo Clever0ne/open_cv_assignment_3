@@ -57,6 +57,27 @@ int main(int argc, char *argv[])
 
     while (waitKey() != 27);
 
+    // Разница спектров изображений
+
+    auto difference = Mat1f();
+    auto fftSpectrum_1 = fft_1.getSpectrum();
+
+    Mat1f fftSpectrumComplex_1[2];
+    split(fftSpectrum_1, fftSpectrumComplex_1);
+    auto fftSpectrumMagnitude_1 = Mat1f();
+
+    magnitude(fftSpectrumComplex_1[RE], fftSpectrumComplex_1[IM], fftSpectrumMagnitude_1);
+    shiftSpectrum(fftSpectrumMagnitude_1, cols / 2, rows / 2);
+
+    fftSpectrumMagnitude_1 += Scalar::all(1);
+    log(fftSpectrumMagnitude_1, fftSpectrumMagnitude_1);
+    normalize(fftSpectrumMagnitude_1, fftSpectrumMagnitude_1, 0, 1, NORM_MINMAX);
+
+    absdiff(fftSpectrumMagnitude_1, openCVSpectrumMagnitude_1, difference);
+    imshow("Difference", difference * 1000);
+
+    while (waitKey() != 27);
+
     /********************** Конец задания 1 **********************/
 
     /********* Задание 2. Фильтры верхних и нижних частот ********/
@@ -122,7 +143,7 @@ int main(int argc, char *argv[])
     auto sobelFilterV = Mat1f(3, 3, *sobelV);
 
     auto fft_sobel = FastFurierTransformer();
-    fft_sobel.setImage(image_3);
+    fft_sobel.setImage(image_3.clone());
     fft_sobel.setSpectrumSize(Size2i(cols, rows));
     fft_sobel.directFastFurierTransform();
 
@@ -162,7 +183,7 @@ int main(int argc, char *argv[])
     auto boxFilter = Mat1f(3, 3, *box);
 
     auto fft_box = FastFurierTransformer();
-    fft_box.setImage(image_3);
+    fft_box.setImage(image_3.clone());
     fft_box.setSpectrumSize(Size2i(cols, rows));
     fft_box.directFastFurierTransform();
 
@@ -194,7 +215,7 @@ int main(int argc, char *argv[])
     auto laplaceFilter = Mat1f(3, 3, *laplace);
 
     auto fft_laplace = FastFurierTransformer();
-    fft_laplace.setImage(image_3);
+    fft_laplace.setImage(image_3.clone());
     fft_laplace.setSpectrumSize(Size2i(cols, rows));
     fft_laplace.directFastFurierTransform();
 
@@ -235,6 +256,19 @@ int main(int argc, char *argv[])
     fft_laplace.inverseFastFurierTransform();
     fft_laplace.showSpectrum("Laplace Filter Spectrum Result");
     fft_laplace.showImage("Laplace Filter Image Result");
+
+    while (waitKey() != 27);
+
+    // Сравнение фильтра Лапласа со встроенным фильтром
+    auto fftLaplaceImage = fft_laplace.getImage();
+    auto openCVLaplaceImage = Mat1f();
+    Laplacian(image_3, openCVLaplaceImage, CV_32F);
+    imshow("Laplace Filter Image Result [OpenCV]", openCVLaplaceImage);
+
+    absdiff(Mat1f(fftLaplaceImage, Rect(1, 1, image_3.cols - 1, image_3.rows - 1)), 
+            Mat1f(openCVLaplaceImage, Rect(0, 0, image_3.cols - 1, image_3.rows - 1)), 
+            difference);
+    imshow("Laplace Difference", difference);
 
     while (waitKey() != 27);
 
@@ -359,6 +393,45 @@ int main(int argc, char *argv[])
 
     fft_carNumber_3.showSpectrum("Correlation with Symbol 'O' Spectrum");
     fft_carNumber_3.showImage("Correlation with Symbol 'O' Image");
+
+    while (waitKey() != 27);
+
+    // Корреляция с символом 'E'
+    Mat1f symbol_4 = imread("src/images/letter_e.bmp", IMREAD_GRAYSCALE);
+    symbol_4 /= static_cast<float>(0xFF);
+
+    cols = getOptimalDFTSize(image_5.cols + symbol_4.cols - 1);
+    rows = getOptimalDFTSize(image_5.rows + symbol_4.rows - 1);
+
+    auto fft_carNumber_4 = FastFurierTransformer();
+    fft_carNumber_4.setImage(image_5);
+    fft_carNumber_4.setSpectrumSize(Size2i(cols, rows));
+    fft_carNumber_4.directFastFurierTransform();
+
+    auto fft_symbol_4 = FastFurierTransformer();
+    fft_symbol_4.setImage(symbol_4);
+    fft_symbol_4.setSpectrumSize(Size2i(cols, rows));
+    fft_symbol_4.directFastFurierTransform();
+
+    fft_carNumber_4.showImage("Car Number");
+    fft_symbol_4.showImage("Symbol 'E' Image");
+    fft_symbol_4.showSpectrum("Symbol 'E' Spectrum");
+
+    while (waitKey() != 27);
+
+    auto carNumberSpectrum_4 = fft_carNumber_4.getSpectrum();
+    auto symbolSpectrum_4 = fft_symbol_4.getSpectrum();
+    multiplySpectrums(carNumberSpectrum_4, symbolSpectrum_4, carNumberSpectrum_4, true);
+
+    fft_carNumber_4.setSpectrum(carNumberSpectrum_4);
+    fft_carNumber_4.inverseFastFurierTransform();
+
+    auto carNumberImage_4 = fft_carNumber_4.getImage();
+    threshold(carNumberImage_4, carNumberImage_4, 0.95, 1.0, THRESH_BINARY);
+    fft_carNumber_4.setImage(carNumberImage_4);
+
+    fft_carNumber_4.showSpectrum("Correlation with Symbol 'E' Spectrum");
+    fft_carNumber_4.showImage("Correlation with Symbol 'E' Image");
 
     while (waitKey() != 27);
 

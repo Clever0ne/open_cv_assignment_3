@@ -364,7 +364,7 @@ void FastFurierTransformer::inverseFFT(const Mat2f& spectrum, Mat1f& image)
     buffer = ifft(rows, cols);
     buffer = ifft(cols, rows);
 
-    float max = 1;
+    float max = FLT_MIN;
     for (auto row = 0; row < image.rows; row++)
     {
         auto imagePtr = image.ptr<float>(row);
@@ -380,10 +380,7 @@ void FastFurierTransformer::inverseFFT(const Mat2f& spectrum, Mat1f& image)
         }
     }
 
-    if (max != 1)
-    {
-        m_image /= max;
-    }
+    m_image /= max;
 }
 
 void FastFurierTransformer::fft(Vec2f *ptr, const int32_t size, const bool isInverse)
@@ -491,16 +488,16 @@ void shiftSpectrum(Mat1f& spectrum, const int32_t shiftX, const int32_t shiftY)
     auto height = (spectrum.rows - shiftY) % spectrum.rows;
 
     auto buffer = Mat1f(spectrum.size());
-    auto left = Mat1f(spectrum, Rect(0, 0, width, spectrum.rows));
-    auto right = Mat1f(spectrum, Rect(width, 0, spectrum.cols - width, spectrum.rows));
-    auto top = Mat1f(buffer, Rect(0, 0, buffer.cols, height));
+    auto left   = Mat1f(spectrum, Rect(0    , 0, width                , spectrum.rows));
+    auto right  = Mat1f(spectrum, Rect(width, 0, spectrum.cols - width, spectrum.rows));
+    auto top    = Mat1f(buffer, Rect(0, 0     , buffer.cols, height              ));
     auto bottom = Mat1f(buffer, Rect(0, height, buffer.cols, buffer.rows - height));
 
-    left.copyTo(buffer(Rect(buffer.cols - width, 0, width, buffer.rows)));
-    right.copyTo(buffer(Rect(0, 0, buffer.cols - width, buffer.rows)));
+    left.copyTo( buffer(Rect(buffer.cols - width, 0, width              , buffer.rows)));
+    right.copyTo(buffer(Rect(0                  , 0, buffer.cols - width, buffer.rows)));
 
-    top.copyTo(spectrum(Rect(0, spectrum.rows - height, spectrum.cols, height)));
-    bottom.copyTo(spectrum(Rect(0, 0, spectrum.cols, spectrum.rows - height)));
+    top.copyTo(   spectrum(Rect(0, spectrum.rows - height, spectrum.cols, height                )));
+    bottom.copyTo(spectrum(Rect(0, 0                     , spectrum.cols, spectrum.rows - height)));
 }
 
 void multiplySpectrums(Mat2f& first, Mat2f& second, Mat2f& result, bool isCorr)
