@@ -11,9 +11,7 @@ using namespace std;
 using namespace cv;
 
 int main(int argc, char *argv[])
-{
-    TickMeter clock1, clock2;
-    
+{    
     /***** Задание 1. Прямое и обратное преобразования Фурье *****/
 
     Mat1f image_1 = imread("src/images/lena.bmp", IMREAD_GRAYSCALE);

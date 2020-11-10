@@ -380,7 +380,7 @@ void FastFurierTransformer::inverseFFT(const Mat2f& spectrum, Mat1f& image)
         }
     }
 
-    m_image /= max;
+    m_image /= max > 1 ? max : 1;
 }
 
 void FastFurierTransformer::fft(Vec2f *ptr, const int32_t size, const bool isInverse)
