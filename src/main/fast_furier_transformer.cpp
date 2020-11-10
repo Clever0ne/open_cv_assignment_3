@@ -50,7 +50,6 @@ static const float k5_Im[5][5] =
     {0.0, sinf(8 * M_PI / 5), sinf(6 * M_PI / 5), sinf(4 * M_PI / 5), sinf(2 * M_PI / 5)}
 };
 
-
 #define K2(i, j, ang) k2_Re[i][j] : (ang > 0 ? 1 : -1) * k2_Im[i][j]
 #define K3(i, j, ang) k3_Re[i][j] : (ang > 0 ? 1 : -1) * k3_Im[i][j]
 #define K5(i, j, ang) k5_Re[i][j] : (ang > 0 ? 1 : -1) * k5_Im[i][j]
@@ -394,10 +393,9 @@ void FastFurierTransformer::fft(Vec2f *ptr, const int32_t size, const bool isInv
     if (size % 2 == 0)
     {
         auto step = size / 2;
-        auto vec0 = Mat2f(1, step, Vec2f(0, 0));
-        auto vec1 = Mat2f(1, step, Vec2f(0, 0));
-        auto ptr0 = vec0.ptr<Vec2f>(0);
-        auto ptr1 = vec1.ptr<Vec2f>(0);
+        auto vec = Mat2f(1, size, Vec2f(0, 0));
+        auto ptr0 = vec.ptr<Vec2f>(0);
+        auto ptr1 = ptr0 + step;
 
         for (int i = 0; i < step; i++)
         {
@@ -421,12 +419,10 @@ void FastFurierTransformer::fft(Vec2f *ptr, const int32_t size, const bool isInv
     if (size % 3 == 0)
     {
         auto step = size / 3;
-        auto vec0 = Mat2f(1, step, Vec2f(0, 0));
-        auto vec1 = Mat2f(1, step, Vec2f(0, 0));
-        auto vec2 = Mat2f(1, step, Vec2f(0, 0));
-        auto ptr0 = vec0.ptr<Vec2f>(0);
-        auto ptr1 = vec1.ptr<Vec2f>(0);
-        auto ptr2 = vec2.ptr<Vec2f>(0);
+        auto vec = Mat2f(1, size, Vec2f(0, 0));
+        auto ptr0 = vec.ptr<Vec2f>(0);
+        auto ptr1 = ptr0 + step;
+        auto ptr2 = ptr1 + step;
 
         for (int i = 0; i < step; i++)
         {
@@ -453,16 +449,12 @@ void FastFurierTransformer::fft(Vec2f *ptr, const int32_t size, const bool isInv
     if (size % 5 == 0)
     {
         auto step = size / 5;
-        auto vec0 = Mat2f(1, step, Vec2f(0, 0));
-        auto vec1 = Mat2f(1, step, Vec2f(0, 0));
-        auto vec2 = Mat2f(1, step, Vec2f(0, 0));
-        auto vec3 = Mat2f(1, step, Vec2f(0, 0));
-        auto vec4 = Mat2f(1, step, Vec2f(0, 0));
-        auto ptr0 = vec0.ptr<Vec2f>(0);
-        auto ptr1 = vec1.ptr<Vec2f>(0);
-        auto ptr2 = vec2.ptr<Vec2f>(0);
-        auto ptr3 = vec3.ptr<Vec2f>(0);
-        auto ptr4 = vec4.ptr<Vec2f>(0);
+        auto vec = Mat2f(1, size, Vec2f(0, 0));
+        auto ptr0 = vec.ptr<Vec2f>(0);
+        auto ptr1 = ptr0 + step;
+        auto ptr2 = ptr1 + step;
+        auto ptr3 = ptr2 + step;
+        auto ptr4 = ptr3 + step;
 
         for (int i = 0; i < step; i++)
         {

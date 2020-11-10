@@ -45,7 +45,6 @@ public:
     void inverseFastFurierTransform();
     void filtrateImage();
 
-
 private:
     cv::Mat1f spectrumMagnitude(cv::Mat2f spectrum);
     cv::Mat1f normalizeSpectrum(cv::Mat1f spectrumMagnitude, const float min, const float max);

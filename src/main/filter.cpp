@@ -3,6 +3,21 @@
 using namespace std;
 using namespace cv;
 
+Filter::Filter(
+    const FilterType filterType,
+    const FilterName filterName,
+    const float distance,
+    const int32_t order, 
+    const float width) :
+    m_filterType(filterType),
+    m_filterName(filterName),
+    m_distance(distance),
+    m_order(order),
+    m_width(width)
+{
+
+}
+
 void Filter::setSize(const Size2i size)
 {
     if (size.height <= 0 || size.width <= 0)
@@ -158,6 +173,7 @@ void Filter::calculateFilter()
     {
         return;
     }
+
     if (m_distance <= 0)
     {
         return;

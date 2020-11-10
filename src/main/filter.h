@@ -20,7 +20,9 @@ enum class FilterName
 class Filter
 {
 public:
-    Filter() = default;
+    Filter(const FilterType filterType = FilterType::LOW_PASS,
+           const FilterName filterName = FilterName::BUTTERWORTH,
+           const float distance = 50, const int32_t order = 5, const float width = 10);
     ~Filter() = default;
 
     void setSize(const cv::Size2i size);
@@ -46,7 +48,7 @@ public:
     int32_t getOrder() const;
 
     void configure(const FilterType filterType, const FilterName filterName,
-                   const float diameter = -1, const int32_t order = -1, const float width = -1);
+                   const float distance = -1, const int32_t order = -1, const float width = -1);
 
 private:
     void calculateFilter();

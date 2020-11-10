@@ -12,6 +12,8 @@ using namespace cv;
 
 int main(int argc, char *argv[])
 {
+    TickMeter clock1, clock2;
+    
     /***** Задание 1. Прямое и обратное преобразования Фурье *****/
 
     Mat1f image_1 = imread("src/images/lena.bmp", IMREAD_GRAYSCALE);
@@ -27,7 +29,7 @@ int main(int argc, char *argv[])
     fft_1.showSpectrum();
     fft_1.showImage();
 
-    // Встроенная функция
+    // Встроенные функции
     auto cols = getOptimalDFTSize(image_1.cols);
     auto rows = getOptimalDFTSize(image_1.rows);
 
@@ -213,7 +215,7 @@ int main(int argc, char *argv[])
 
     while (waitKey() != 27);
 
-    /**** Задание 4. Результаты свёртки иображения с фильтрами ***/
+    /**** Задание 4. Результаты свёртки изображения с фильтрами ***/
 
     // 1) Фильтр Собеля
     fft_sobel.inverseFastFurierTransform();
@@ -238,12 +240,12 @@ int main(int argc, char *argv[])
 
     /********************** Конец задания 4 **********************/
 
-    /************* Задание 4. Корелляция изображений *************/
+    /************* Задание 5. Корреляция изображений *************/
 
     Mat1f image_5 = imread("src/images/car_number.bmp", IMREAD_GRAYSCALE);
     image_5 /= static_cast<float>(0xFF);
 
-    // Корелляция с символом '6'
+    // Корреляция с символом '6'
     Mat1f symbol_1 = imread("src/images/number_six.bmp", IMREAD_GRAYSCALE);
     symbol_1 /= static_cast<float>(0xFF);
 
@@ -261,7 +263,8 @@ int main(int argc, char *argv[])
     fft_symbol_1.directFastFurierTransform();
 
     fft_carNumber_1.showImage("Car Number");
-    fft_symbol_1.showImage("Symbol '6'");
+    fft_symbol_1.showImage("Symbol '6' Image");
+    fft_symbol_1.showSpectrum("Symbol '6' Spectrum");
 
     while (waitKey() != 27);
 
@@ -281,7 +284,7 @@ int main(int argc, char *argv[])
 
     while (waitKey() != 27);
 
-    // Корелляция с символом '9'
+    // Корреляция с символом '9'
     Mat1f symbol_2 = imread("src/images/number_nine.bmp", IMREAD_GRAYSCALE);
     symbol_2 /= static_cast<float>(0xFF);
 
@@ -299,7 +302,8 @@ int main(int argc, char *argv[])
     fft_symbol_2.directFastFurierTransform();
 
     fft_carNumber_2.showImage("Car Number");
-    fft_symbol_2.showImage("Symbol '9'");
+    fft_symbol_2.showImage("Symbol '9' Image");
+    fft_symbol_2.showSpectrum("Symbol '9' Spectrum");
 
     while (waitKey() != 27);
 
@@ -319,7 +323,7 @@ int main(int argc, char *argv[])
 
     while (waitKey() != 27);
 
-    // Корелляция с символом 'O'
+    // Корреляция с символом 'O'
     Mat1f symbol_3 = imread("src/images/letter_o.bmp", IMREAD_GRAYSCALE);
     symbol_3 /= static_cast<float>(0xFF);
 
@@ -337,7 +341,8 @@ int main(int argc, char *argv[])
     fft_symbol_3.directFastFurierTransform();
 
     fft_carNumber_3.showImage("Car Number");
-    fft_symbol_3.showImage("Symbol 'O'");
+    fft_symbol_3.showImage("Symbol 'O' Image");
+    fft_symbol_3.showSpectrum("Symbol 'O' Spectrum");
 
     while (waitKey() != 27);
 
