@@ -166,7 +166,7 @@ void FastFurierTransformer::showSpectrum(cv::String spectrumName)
         return;
     }
     spectrumName.append(" [FFT]");
-    imshow(spectrumName, spectrumMagnitude(m_spectrum));
+    imshow(spectrumName, getSpectrumMagnitude());
 }
 
 void FastFurierTransformer::setSpectrumSize(Size2i spectrumSize)
@@ -189,19 +189,19 @@ Filter& FastFurierTransformer::getFilter()
     return m_filter;
 }
 
-Mat1f FastFurierTransformer::spectrumMagnitude(cv::Mat2f spectrum)
+Mat1f FastFurierTransformer::getSpectrumMagnitude()
 {
-    shiftSpectrum(spectrum, spectrum.cols / 2, spectrum.rows / 2);
-    auto spectrumMagnitude = Mat1f(spectrum.size());
+    shiftSpectrum(m_spectrum, m_spectrum.cols / 2, m_spectrum.rows / 2);
+    auto buffer = Mat1f(m_spectrum.size());
     auto max = FLT_MIN;
     auto min = FLT_MAX;
-    for (auto row = 0; row < spectrum.rows; row++)
+    for (auto row = 0; row < m_spectrum.rows; row++)
     {
-        auto magnPtr = spectrumMagnitude.ptr<float>(row);
-        auto spectrPtr = spectrum.ptr<Vec2f>(row);
-        for (auto col = 0; col < spectrum.cols; col++)
+        auto magnPtr = buffer.ptr<float>(row);
+        auto spcPtr = m_spectrum.ptr<Vec2f>(row);
+        for (auto col = 0; col < m_spectrum.cols; col++)
         {
-            auto magn = hypotf(spectrPtr[col][0], spectrPtr[col][1]);
+            auto magn = hypotf(spcPtr[col][0], spcPtr[col][1]);
             auto logMagn = log1pf(magn);
             if (logMagn > max)
             {
@@ -214,8 +214,8 @@ Mat1f FastFurierTransformer::spectrumMagnitude(cv::Mat2f spectrum)
             magnPtr[col] = logMagn;
         }
     }  
-    shiftSpectrum(spectrum, spectrum.cols / 2, spectrum.rows / 2);
-    return normalizeSpectrum(spectrumMagnitude, min, max);
+    shiftSpectrum(m_spectrum, m_spectrum.cols / 2, m_spectrum.rows / 2);
+    return normalizeSpectrum(buffer, min, max);
 }
 
 Mat1f FastFurierTransformer::normalizeSpectrum(Mat1f spectrumMagnitude, const float min, const float max)
@@ -343,8 +343,8 @@ void FastFurierTransformer::inverseFFT(const Mat2f& spectrum, Mat1f& image)
         return;
     }
 
-    const auto cols = getOptimalDFTSize(spectrum.cols);
-    const auto rows = getOptimalDFTSize(spectrum.rows);
+    auto cols = getOptimalDFTSize(spectrum.cols);
+    auto rows = getOptimalDFTSize(spectrum.rows);
 
     auto buffer = spectrum.clone();
 

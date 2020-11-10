@@ -55,24 +55,18 @@ int main(int argc, char *argv[])
 
     while (waitKey() != 27);
 
-    // Разница спектров изображений
+    // Сравнение спектров и изображений
+    auto diffSpectrum = Mat1f();
+    auto diffImage = Mat1f();
 
-    auto difference = Mat1f();
-    auto fftSpectrum_1 = fft_1.getSpectrum();
+    auto fftSpectrumMagnitude_1 = fft_1.getSpectrumMagnitude();
+    auto fftImage_1 = fft_1.getImage();
 
-    Mat1f fftSpectrumComplex_1[2];
-    split(fftSpectrum_1, fftSpectrumComplex_1);
-    auto fftSpectrumMagnitude_1 = Mat1f();
+    absdiff(fftSpectrumMagnitude_1, openCVSpectrumMagnitude_1, diffSpectrum);
+    imshow("Spectrum Difference", diffSpectrum * 1e3);
 
-    magnitude(fftSpectrumComplex_1[RE], fftSpectrumComplex_1[IM], fftSpectrumMagnitude_1);
-    shiftSpectrum(fftSpectrumMagnitude_1, cols / 2, rows / 2);
-
-    fftSpectrumMagnitude_1 += Scalar::all(1);
-    log(fftSpectrumMagnitude_1, fftSpectrumMagnitude_1);
-    normalize(fftSpectrumMagnitude_1, fftSpectrumMagnitude_1, 0, 1, NORM_MINMAX);
-
-    absdiff(fftSpectrumMagnitude_1, openCVSpectrumMagnitude_1, difference);
-    imshow("Difference", difference * 1000);
+    absdiff(fftImage_1, openCVImageROI_1, diffImage);
+    imshow("Image Difference", diffImage * 1e3);
 
     while (waitKey() != 27);
 
@@ -263,6 +257,7 @@ int main(int argc, char *argv[])
     Laplacian(image_3, openCVLaplaceImage, CV_32F);
     imshow("Laplace Filter Image Result [OpenCV]", openCVLaplaceImage);
 
+    auto difference = Mat1f();
     absdiff(Mat1f(fftLaplaceImage, Rect(1, 1, image_3.cols - 1, image_3.rows - 1)), 
             Mat1f(openCVLaplaceImage, Rect(0, 0, image_3.cols - 1, image_3.rows - 1)), 
             difference);

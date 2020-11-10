@@ -33,6 +33,7 @@ public:
     void setSpectrum(const cv::Mat2f image);
     void setSpectrum(const cv::Mat image);
     cv::Mat2f getSpectrum() const;
+    cv::Mat1f getSpectrumMagnitude();
     void showSpectrum(cv::String imageName = "Spectrum");
 
     void setSpectrumSize(cv::Size2i spectrumSize);
@@ -46,7 +47,6 @@ public:
     void filtrateImage();
 
 private:
-    cv::Mat1f spectrumMagnitude(cv::Mat2f spectrum);
     cv::Mat1f normalizeSpectrum(cv::Mat1f spectrumMagnitude, const float min, const float max);
     void shiftSpectrum(cv::Mat2f& spectrum, const int32_t shiftX, const int32_t shiftY);
 
