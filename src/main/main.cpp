@@ -7,6 +7,9 @@
 #include "fast_furier_transformer.h"
 #include "filter.h"
 
+#define KERNEL_COLS 3
+#define KERNEL_ROWS 3 
+
 using namespace std;
 using namespace cv;
 
@@ -33,13 +36,13 @@ int main(int argc, char *argv[])
 
     auto openCVSpectrum_1 = Mat2f(Size2i(cols, rows), Vec2f(0, 0));
     auto openCVImage_1 = Mat1f(Size2i(cols, rows), 0);
-    auto openCVImageROI_1 = image_1.clone();
+    auto openCVImageROI_1 = Mat1f(image_1.clone());
     openCVImageROI_1.copyTo(openCVImage_1(Rect(0, 0, image_1.cols, image_1.rows)));
 
     dft(openCVImage_1, openCVSpectrum_1, DFT_COMPLEX_OUTPUT);
     idft(openCVSpectrum_1, openCVImage_1, DFT_REAL_OUTPUT);
 
-    Mat1f openCVSpectrumComplex_1[2];
+    Mat1f openCVSpectrumComplex_1[NUM_OF_COMPLEX_PARTS];
     split(openCVSpectrum_1, openCVSpectrumComplex_1);
     auto openCVSpectrumMagnitude_1 = Mat1f();
 
@@ -63,10 +66,10 @@ int main(int argc, char *argv[])
     auto fftImage_1 = fft_1.getImage();
 
     absdiff(fftSpectrumMagnitude_1, openCVSpectrumMagnitude_1, diffSpectrum);
-    imshow("Spectrum Difference", diffSpectrum * 1e3);
+    imshow("Spectrum Difference", diffSpectrum);
 
     absdiff(fftImage_1, openCVImageROI_1, diffImage);
-    imshow("Image Difference", diffImage * 1e3);
+    imshow("Image Difference", diffImage);
 
     while (waitKey() != 27);
 
@@ -114,50 +117,90 @@ int main(int argc, char *argv[])
     Mat1f image_3 = imread("src/images/lena.bmp", IMREAD_GRAYSCALE);
     image_3 /= static_cast<float>(0xFF);
 
-    cols = getOptimalDFTSize(image_3.cols + 3 - 1);
-    rows = getOptimalDFTSize(image_3.rows + 3 - 1);
+    cols = getOptimalDFTSize(image_3.cols + KERNEL_COLS - 1);
+    rows = getOptimalDFTSize(image_3.rows + KERNEL_ROWS - 1);
 
     // 1) Фильтр Собеля
-    float sobelH[3][3] =
+
+    // а) Горизонтальный оператор Собеля
+    float sobelH[KERNEL_COLS][KERNEL_ROWS] =
     {
         { 1.0,  2.0,  1.0},
         { 0.0,  0.0,  0.0},
         {-1.0, -2.0, -1.0}
     };
-    float sobelV[3][3] =
+    auto sobelOperatorH = Mat1f(KERNEL_COLS, KERNEL_ROWS, *sobelH);
+    
+    auto fft_sobelH = FastFurierTransformer();
+    fft_sobelH.setImage(image_3.clone());
+    fft_sobelH.setSpectrumSize(Size2i(cols, rows));
+    fft_sobelH.directFastFurierTransform();
+
+    auto fft_sobelFilterH = FastFurierTransformer();
+    fft_sobelFilterH.setImage(sobelOperatorH);
+    fft_sobelFilterH.setSpectrumSize(Size2i(cols, rows));
+    fft_sobelFilterH.directFastFurierTransform();
+
+    fft_sobelH.showSpectrum("Image Spectrum");
+    fft_sobelFilterH.showSpectrum("Horizontal Sobel Operator Spectrum");
+
+    auto sobelSpectrumH = fft_sobelH.getSpectrum();
+    auto sobelOperatorSpectrumH = fft_sobelFilterH.getSpectrum();
+    multiplySpectrums(sobelSpectrumH, sobelOperatorSpectrumH, sobelSpectrumH);
+    
+    fft_sobelH.setSpectrum(sobelSpectrumH);
+    fft_sobelH.showSpectrum("Horizontal Sobel Operator Spectrum Result");
+
+    while (waitKey() != 27);
+
+    // б) Вертикальный оператор Собеля
+    float sobelV[KERNEL_COLS][KERNEL_ROWS] =
     {
         { 1.0,  0.0, -1.0},
         { 2.0,  0.0, -2.0},
         { 1.0,  0.0, -1.0}
     };
+    auto sobelOperatorV = Mat1f(KERNEL_COLS, KERNEL_ROWS, *sobelV);
 
-    auto sobelFilterH = Mat1f(3, 3, *sobelH);
-    auto sobelFilterV = Mat1f(3, 3, *sobelV);
+    auto fft_sobelV = FastFurierTransformer();
+    fft_sobelV.setImage(image_3.clone());
+    fft_sobelV.setSpectrumSize(Size2i(cols, rows));
+    fft_sobelV.directFastFurierTransform();
 
+    auto fft_sobelFilterV = FastFurierTransformer();
+    fft_sobelFilterV.setImage(sobelOperatorV);
+    fft_sobelFilterV.setSpectrumSize(Size2i(cols, rows));
+    fft_sobelFilterV.directFastFurierTransform();
+
+    fft_sobelV.showSpectrum("Image Spectrum");
+    fft_sobelFilterV.showSpectrum("Vertical Sobel Operator Spectrum");
+
+    auto sobelSpectrumV = fft_sobelV.getSpectrum();
+    auto sobelOperatorSpectrumV = fft_sobelFilterV.getSpectrum();
+    multiplySpectrums(sobelSpectrumV, sobelOperatorSpectrumV, sobelSpectrumV);
+
+    fft_sobelV.setSpectrum(sobelSpectrumV);
+    fft_sobelV.showSpectrum("Vertical Sobel Operator Spectrum Result");
+
+    while (waitKey() != 27);
+
+    // в) Свёртка горизотального и вертикального операторов Собеля
     auto fft_sobel = FastFurierTransformer();
     fft_sobel.setImage(image_3.clone());
     fft_sobel.setSpectrumSize(Size2i(cols, rows));
     fft_sobel.directFastFurierTransform();
+    
+    auto sobelSpectrum = fft_sobel.getSpectrum();
+    auto sobelFilterSpectrum = Mat2f();
+    multiplySpectrums(sobelOperatorSpectrumH, sobelOperatorSpectrumV, sobelFilterSpectrum);
 
-    auto fft_sobelH = FastFurierTransformer();
-    fft_sobelH.setImage(sobelFilterH);
-    fft_sobelH.setSpectrumSize(Size2i(cols, rows));
-    fft_sobelH.directFastFurierTransform();
-
-    auto fft_sobelV = FastFurierTransformer();
-    fft_sobelV.setImage(sobelFilterV);
-    fft_sobelV.setSpectrumSize(Size2i(cols, rows));
-    fft_sobelV.directFastFurierTransform();
+    auto fft_sobelFilter = FastFurierTransformer();
+    fft_sobelFilter.setSpectrum(sobelFilterSpectrum);
 
     fft_sobel.showSpectrum("Image Spectrum");
-    fft_sobelH.showSpectrum("Horizontal Sobel Operator Spectrum");
-    fft_sobelV.showSpectrum("Vertical Sobel Operator Spectrum");
+    fft_sobelFilter.showSpectrum("Sobel Filter Spectrum");
 
-    auto sobelSpectrum = fft_sobel.getSpectrum();
-    auto sobelOperatorSpectrumH = fft_sobelH.getSpectrum();
-    auto sobelOperatorSpectrumV = fft_sobelV.getSpectrum();
-    multiplySpectrums(sobelSpectrum, sobelOperatorSpectrumH, sobelSpectrum);
-    multiplySpectrums(sobelSpectrum, sobelOperatorSpectrumV, sobelSpectrum);
+    multiplySpectrums(sobelSpectrum, sobelFilterSpectrum, sobelSpectrum);
 
     fft_sobel.setSpectrum(sobelSpectrum);
     fft_sobel.showSpectrum("Sobel Filter Spectrum Result");
@@ -165,14 +208,14 @@ int main(int argc, char *argv[])
     while (waitKey() != 27);
 
     // 2) Усредняющий фильтр (Box Filter)
-    float box[3][3] =
+    float box[KERNEL_COLS][KERNEL_ROWS] =
     {
-        {1.0, 1.0, 1.0},
-        {1.0, 1.0, 1.0},
-        {1.0, 1.0, 1.0}
+        {1.0 / 9.0, 1.0 / 9.0, 1.0 / 9.0},
+        {1.0 / 9.0, 1.0 / 9.0, 1.0 / 9.0},
+        {1.0 / 9.0, 1.0 / 9.0, 1.0 / 9.0}
     };
 
-    auto boxFilter = Mat1f(3, 3, *box);
+    auto boxFilterKernel = Mat1f(KERNEL_COLS, KERNEL_ROWS, *box);
 
     auto fft_box = FastFurierTransformer();
     fft_box.setImage(image_3.clone());
@@ -180,7 +223,7 @@ int main(int argc, char *argv[])
     fft_box.directFastFurierTransform();
 
     auto fft_boxFilter = FastFurierTransformer();
-    fft_boxFilter.setImage(boxFilter);
+    fft_boxFilter.setImage(boxFilterKernel);
     fft_boxFilter.setSpectrumSize(Size2i(cols, rows));
     fft_boxFilter.directFastFurierTransform();
 
@@ -197,14 +240,14 @@ int main(int argc, char *argv[])
     while (waitKey() != 27);
 
     // 3) Фильтр Лапласа
-    float laplace[3][3] =
+    float laplace[KERNEL_COLS][KERNEL_ROWS] =
     {
         {0.0,  1.0,  0.0},
         {1.0, -4.0,  1.0},
         {0.0,  1.0,  0.0}
     };
 
-    auto laplaceFilter = Mat1f(3, 3, *laplace);
+    auto laplaceFilterKernel = Mat1f(KERNEL_COLS, KERNEL_ROWS, *laplace);
 
     auto fft_laplace = FastFurierTransformer();
     fft_laplace.setImage(image_3.clone());
@@ -212,7 +255,7 @@ int main(int argc, char *argv[])
     fft_laplace.directFastFurierTransform();
 
     auto fft_laplaceFilter = FastFurierTransformer();
-    fft_laplaceFilter.setImage(laplaceFilter);
+    fft_laplaceFilter.setImage(laplaceFilterKernel);
     fft_laplaceFilter.setSpectrumSize(Size2i(cols, rows));
     fft_laplaceFilter.directFastFurierTransform();
 
@@ -231,20 +274,89 @@ int main(int argc, char *argv[])
     /**** Задание 4. Результаты свёртки изображения с фильтрами ***/
 
     // 1) Фильтр Собеля
+
+    // a) Горизонтальный оператор Собеля
+    fft_sobelH.setImageShift(Point2i(KERNEL_COLS / 2, KERNEL_ROWS / 2));
+    fft_sobelH.inverseFastFurierTransform();
+    fft_sobelH.showSpectrum("Horizontal Sobel Operator Spectrum Result");
+    fft_sobelH.showImage("Horizontal Sobel Operator Image Result");
+
+    while (waitKey() != 27);
+
+    // Сравнение горизонтального оператора Собеля со встроенным фильтром
+    auto fftSobelHImage = fft_sobelH.getImage();
+    auto openCVSobelHImage = Mat1f();
+    Sobel(image_3, openCVSobelHImage, CV_32FC1, 0, 1, 3, 1, 0, BORDER_CONSTANT);
+    imshow("Horizontal Sobel Operator Image Result [OpenCV]", openCVSobelHImage);
+
+    auto diffSobelHFilter = Mat1f();
+    absdiff(fftSobelHImage, openCVSobelHImage, diffSobelHFilter);
+    imshow("Horizontal Sobel Operator Image Difference", diffSobelHFilter);
+
+    while (waitKey() != 27);
+
+    // б) Вертикальный оператор Собеля
+    fft_sobelV.setImageShift(Point2i(KERNEL_COLS / 2, KERNEL_ROWS / 2));
+    fft_sobelV.inverseFastFurierTransform();
+    fft_sobelV.showSpectrum("Vertical Sobel Operator Spectrum Result");
+    fft_sobelV.showImage("Vertical Sobel Operator Image Result");
+
+    while (waitKey() != 27);
+
+    // Сравнение вертикального оператора Собеля со встроенным фильтром
+    auto fftSobelVImage = fft_sobelV.getImage();
+    auto openCVSobelVImage = Mat1f();
+    Sobel(image_3, openCVSobelVImage, CV_32FC1, 1, 0, 3, 1, 0, BORDER_CONSTANT);
+    imshow("Vertical Sobel Operator Image Result [OpenCV]", openCVSobelVImage);
+
+    auto diffSobelVFilter = Mat1f();
+    absdiff(fftSobelVImage, openCVSobelVImage, diffSobelVFilter);
+    imshow("Vertical Sobel Operator Image Difference", diffSobelVFilter);
+
+    while (waitKey() != 27);
+
+    // в) Свёртка горизонтального и вертикального операторов Собеля
+    fft_sobel.setImageShift(Point2i(2 * (KERNEL_COLS / 2), 2 * (KERNEL_ROWS / 2)));
     fft_sobel.inverseFastFurierTransform();
     fft_sobel.showSpectrum("Sobel Filter Spectrum Result");
     fft_sobel.showImage("Sobel Filter Image Result");
 
     while (waitKey() != 27);
 
+    // Сравнение свёртки операторов Собеля со встроенным фильтром
+    auto fftSobelImage = fft_sobel.getImage();
+    auto openCVSobelImage = Mat1f();
+    Sobel(image_3, openCVSobelImage, CV_32FC1, 1, 1, 3, 1, 0, BORDER_CONSTANT);
+    imshow("Sobel Filter Image Result [OpenCV]", openCVSobelImage);
+
+    auto diffSobelFilter = Mat1f();
+    absdiff(fftSobelImage, openCVSobelImage, diffSobelFilter);
+    imshow("Sobel Filter Image Difference", diffSobelFilter);
+
+    while (waitKey() != 27);
+
     // 2) Усредняющий фильтр (Box Filter)
+    fft_box.setImageShift(Point2i(KERNEL_COLS / 2, KERNEL_ROWS / 2));
     fft_box.inverseFastFurierTransform();
     fft_box.showSpectrum("Box Filter Spectrum Result");
     fft_box.showImage("Box Filter Image Result");
 
     while (waitKey() != 27);
 
+    // Сравнение усредняющего фильтра со встроенным фильтром
+    auto fftBoxImage = fft_box.getImage();
+    auto openCVBoxImage = Mat1f();
+    boxFilter(image_3, openCVBoxImage, CV_32FC1, Size(3, 3), Point(-1, -1), true, BORDER_CONSTANT);
+    imshow("Box Filter Image Result [OpenCV]", openCVBoxImage);
+
+    auto diffBoxFilter = Mat1f();
+    absdiff(fftBoxImage, openCVBoxImage, diffBoxFilter);
+    imshow("Box Filter Image Difference", diffBoxFilter);
+
+    while (waitKey() != 27);
+
     // 3) Фильтр Лапласа
+    fft_laplace.setImageShift(Point2i(KERNEL_COLS / 2, KERNEL_ROWS / 2));
     fft_laplace.inverseFastFurierTransform();
     fft_laplace.showSpectrum("Laplace Filter Spectrum Result");
     fft_laplace.showImage("Laplace Filter Image Result");
@@ -254,14 +366,12 @@ int main(int argc, char *argv[])
     // Сравнение фильтра Лапласа со встроенным фильтром
     auto fftLaplaceImage = fft_laplace.getImage();
     auto openCVLaplaceImage = Mat1f();
-    Laplacian(image_3, openCVLaplaceImage, CV_32F);
+    Laplacian(image_3, openCVLaplaceImage, CV_32FC1, 1, 1, 0, BORDER_CONSTANT);
     imshow("Laplace Filter Image Result [OpenCV]", openCVLaplaceImage);
 
-    auto difference = Mat1f();
-    absdiff(Mat1f(fftLaplaceImage, Rect(1, 1, image_3.cols - 1, image_3.rows - 1)), 
-            Mat1f(openCVLaplaceImage, Rect(0, 0, image_3.cols - 1, image_3.rows - 1)), 
-            difference);
-    imshow("Laplace Difference", difference);
+    auto diffLaplaceFilter = Mat1f();
+    absdiff(fftLaplaceImage, openCVLaplaceImage, diffLaplaceFilter);
+    imshow("Laplace Filter Difference", diffLaplaceFilter);
 
     while (waitKey() != 27);
 

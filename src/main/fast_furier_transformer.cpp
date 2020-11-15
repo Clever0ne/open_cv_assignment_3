@@ -116,7 +116,7 @@ void FastFurierTransformer::setImage(const Mat& image)
     {
         return;
     }
-    m_image = image.clone();
+    image.convertTo(m_image, m_image.type());
     m_image /= static_cast<float>(0xFF);
 }
 
@@ -125,7 +125,7 @@ Mat1f FastFurierTransformer::getImage() const
     return m_image.clone();
 }
 
-void FastFurierTransformer::showImage(cv::String imageName)
+void FastFurierTransformer::showImage(String imageName)
 {
     if (m_spectrum.empty() == true)
     {
@@ -135,7 +135,7 @@ void FastFurierTransformer::showImage(cv::String imageName)
     imshow(imageName, m_image);
 }
 
-void FastFurierTransformer::setSpectrum(const Mat2f spectrum)
+void FastFurierTransformer::setSpectrum(const Mat2f& spectrum)
 {
     if (spectrum.empty() == true)
     {
@@ -144,14 +144,14 @@ void FastFurierTransformer::setSpectrum(const Mat2f spectrum)
     m_spectrum = spectrum.clone();
 }
 
-void FastFurierTransformer::setSpectrum(const Mat spectrum)
+void FastFurierTransformer::setSpectrum(const Mat& spectrum)
 {
     if (spectrum.empty() == true)
     {
         return;
     }
-    auto newSpectrum = Mat2f(spectrum);
-    m_spectrum = newSpectrum.clone();
+    spectrum.convertTo(m_spectrum, m_spectrum.type());
+    m_spectrum /= static_cast<float>(0xFF);
 }
 
 Mat2f FastFurierTransformer::getSpectrum() const
@@ -159,7 +159,7 @@ Mat2f FastFurierTransformer::getSpectrum() const
     return m_spectrum.clone();
 }
 
-void FastFurierTransformer::showSpectrum(cv::String spectrumName)
+void FastFurierTransformer::showSpectrum(String spectrumName)
 {
     if (m_spectrum.empty() == true)
     {
@@ -177,6 +177,17 @@ void FastFurierTransformer::setSpectrumSize(Size2i spectrumSize)
 Size2i FastFurierTransformer::getSpectrumSize() const
 {
     return m_spectrumSize;
+}
+
+void FastFurierTransformer::setImageShift(Point2i imageShift)
+{
+    m_imageShift = imageShift;
+}
+
+
+Point2i FastFurierTransformer::getImageShift() const
+{
+    return m_imageShift;
 }
 
 void FastFurierTransformer::setFilter(Filter& filter)
@@ -215,10 +226,11 @@ Mat1f FastFurierTransformer::getSpectrumMagnitude()
         }
     }  
     shiftSpectrum(m_spectrum, m_spectrum.cols / 2, m_spectrum.rows / 2);
-    return normalizeSpectrum(buffer, min, max);
+    normalizeSpectrum(buffer, min, max);
+    return buffer;
 }
 
-Mat1f FastFurierTransformer::normalizeSpectrum(Mat1f spectrumMagnitude, const float min, const float max)
+void FastFurierTransformer::normalizeSpectrum(Mat1f& spectrumMagnitude, const float min, const float max)
 {
     for (auto row = 0; row < spectrumMagnitude.rows; row++)
     {
@@ -229,7 +241,6 @@ Mat1f FastFurierTransformer::normalizeSpectrum(Mat1f spectrumMagnitude, const fl
             magnPtr[col] /= (max - min);
         }
     }
-    return spectrumMagnitude;
 }
 
 void FastFurierTransformer::shiftSpectrum(Mat2f& spectrum, const int32_t shiftX, const int32_t shiftY)
@@ -365,13 +376,15 @@ void FastFurierTransformer::inverseFFT(const Mat2f& spectrum, Mat1f& image)
     buffer = ifft(cols, rows);
 
     float max = FLT_MIN;
+    auto shiftX = m_imageShift.x;
+    auto shiftY = m_imageShift.y;
     for (auto row = 0; row < image.rows; row++)
     {
         auto imagePtr = image.ptr<float>(row);
-        auto spectrumPtr = buffer.ptr<Vec2f>(row);
+        auto spectrumPtr = buffer.ptr<Vec2f>(row + shiftY);
         for (auto col = 0; col < image.cols; col++)
         { 
-            float value = spectrumPtr[col][RE] / (cols * rows);
+            float value = spectrumPtr[col + shiftX][RE] / (cols * rows);
             imagePtr[col] = value;
             if (value > max)
             {
@@ -488,16 +501,16 @@ void shiftSpectrum(Mat1f& spectrum, const int32_t shiftX, const int32_t shiftY)
     auto height = (spectrum.rows - shiftY) % spectrum.rows;
 
     auto buffer = Mat1f(spectrum.size());
-    auto left   = Mat1f(spectrum, Rect(0    , 0, width                , spectrum.rows));
-    auto right  = Mat1f(spectrum, Rect(width, 0, spectrum.cols - width, spectrum.rows));
-    auto top    = Mat1f(buffer, Rect(0, 0     , buffer.cols, height              ));
+    auto left = Mat1f(spectrum, Rect(0, 0, width, spectrum.rows));
+    auto right = Mat1f(spectrum, Rect(width, 0, spectrum.cols - width, spectrum.rows));
+    auto top = Mat1f(buffer, Rect(0, 0, buffer.cols, height));
     auto bottom = Mat1f(buffer, Rect(0, height, buffer.cols, buffer.rows - height));
 
-    left.copyTo( buffer(Rect(buffer.cols - width, 0, width              , buffer.rows)));
-    right.copyTo(buffer(Rect(0                  , 0, buffer.cols - width, buffer.rows)));
+    left.copyTo(buffer(Rect(buffer.cols - width, 0, width, buffer.rows)));
+    right.copyTo(buffer(Rect(0, 0, buffer.cols - width, buffer.rows)));
 
-    top.copyTo(   spectrum(Rect(0, spectrum.rows - height, spectrum.cols, height                )));
-    bottom.copyTo(spectrum(Rect(0, 0                     , spectrum.cols, spectrum.rows - height)));
+    top.copyTo(spectrum(Rect(0, spectrum.rows - height, spectrum.cols, height)));
+    bottom.copyTo(spectrum(Rect(0, 0, spectrum.cols, spectrum.rows - height)));
 }
 
 void multiplySpectrums(Mat2f& first, Mat2f& second, Mat2f& result, bool isCorr)
