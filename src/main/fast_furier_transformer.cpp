@@ -98,6 +98,7 @@ static const float k5_Im[5][5] =
         DFT5_RE(ptr, ptr0, ptr1, ptr2, ptr3, ptr4, ang, i, j, step); \
         DFT5_IM(ptr, ptr0, ptr1, ptr2, ptr3, ptr4, ang, i, j, step)
 
+
 using namespace std;
 using namespace cv;
 
@@ -127,12 +128,46 @@ Mat1f FastFurierTransformer::getImage() const
 
 void FastFurierTransformer::showImage(String imageName)
 {
-    if (m_spectrum.empty() == true)
+    if (m_image.empty() == true)
     {
         return;
     }
     imageName.append(" [FFT]");
     imshow(imageName, m_image);
+}
+
+void FastFurierTransformer::setPattern(const Mat1f& pattern)
+{
+    if (pattern.empty() == true)
+    {
+        return;
+    }
+    m_pattern = pattern.clone();
+}
+
+void FastFurierTransformer::setPattern(const Mat& pattern)
+{
+    if (pattern.empty() == true)
+    {
+        return;
+    }
+    pattern.convertTo(m_pattern, m_pattern.type());
+    m_pattern /= static_cast<float>(0xFF);
+}
+
+Mat1f FastFurierTransformer::getPattern() const
+{
+    return m_pattern.clone();
+}
+
+void FastFurierTransformer::showPattern(String patternName)
+{
+    if (m_pattern.empty() == true)
+    {
+        return;
+    }
+    patternName.append(" [FFT]");
+    imshow(patternName, m_pattern);
 }
 
 void FastFurierTransformer::setSpectrum(const Mat2f& spectrum)
@@ -202,32 +237,7 @@ Filter& FastFurierTransformer::getFilter()
 
 Mat1f FastFurierTransformer::getSpectrumMagnitude()
 {
-    shiftSpectrum(m_spectrum, m_spectrum.cols / 2, m_spectrum.rows / 2);
-    auto buffer = Mat1f(m_spectrum.size());
-    auto max = FLT_MIN;
-    auto min = FLT_MAX;
-    for (auto row = 0; row < m_spectrum.rows; row++)
-    {
-        auto magnPtr = buffer.ptr<float>(row);
-        auto spcPtr = m_spectrum.ptr<Vec2f>(row);
-        for (auto col = 0; col < m_spectrum.cols; col++)
-        {
-            auto magn = hypotf(spcPtr[col][0], spcPtr[col][1]);
-            auto logMagn = log1pf(magn);
-            if (logMagn > max)
-            {
-                max = logMagn;
-            }
-            if (logMagn < min)
-            {
-                min = logMagn;
-            }
-            magnPtr[col] = logMagn;
-        }
-    }  
-    shiftSpectrum(m_spectrum, m_spectrum.cols / 2, m_spectrum.rows / 2);
-    normalizeSpectrum(buffer, min, max);
-    return buffer;
+    return getMagnitude(m_spectrum);
 }
 
 void FastFurierTransformer::normalizeSpectrum(Mat1f& spectrumMagnitude, const float min, const float max)
@@ -273,28 +283,155 @@ void FastFurierTransformer::inverseFastFurierTransform()
 
 void FastFurierTransformer::filtrateImage()
 {
+    filtrate(m_image, m_spectrum);
+}
+
+void FastFurierTransformer::normalizedCrossCorrelation()
+{
     if (m_image.empty() == true)
     {
         return;
     }
 
-    directFFT(m_image, m_spectrum);
-    shiftSpectrum(m_spectrum, m_spectrum.cols / 2, m_spectrum.rows / 2);
-
-    m_filter.setSize(m_spectrum.size());
-    for (auto row = 0; row < m_spectrum.rows; row++)
+    if (m_pattern.empty() == true)
     {
-        auto spcPtr = m_spectrum.ptr<Vec2f>(row);
+        return;
+    }
+
+    /*auto sqrMat = [](Mat1f& mat)
+    {
+        for (auto row = 0; row < mat.rows; row++)
+        {
+            auto ptr = mat.ptr<float>(row);
+            for (auto col = 0; col < mat.cols; col++)
+            {
+                ptr[col] = powf(ptr[col], 2);
+            }
+        }
+        return mat;
+    };
+
+    auto sqrtMat = [](Mat1f& mat)
+    {
+        for (auto row = 0; row < mat.rows; row++)
+        {
+            auto ptr = mat.ptr<float>(row);
+            for (auto col = 0; col < mat.cols; col++)
+            {
+                ptr[col] = sqrtf(ptr[col]);
+            }
+        }
+        return mat;
+    };
+
+    auto gaussFilter = Filter(FilterType::LOW_PASS, FilterName::GAUSS, hypotf(m_image.cols, m_image.rows));
+    setFilter(gaussFilter);
+
+    auto image = m_image.clone();
+    auto imageSpectrum = Mat2f();
+    filtrate(image, imageSpectrum);
+    image = m_image - image;
+
+    auto pattern = m_pattern.clone();
+    auto patternSpectrum = Mat2f();
+    filtrate(pattern, patternSpectrum);
+    pattern = m_pattern - pattern;
+
+    auto cols = getOptimalDFTSize(image.cols + pattern.cols - 1);
+    auto rows = getOptimalDFTSize(image.rows + pattern.rows - 1);
+    setSpectrumSize(Size2i(cols, rows));
+
+    auto imgStdDev = image.clone();
+    auto imgDispSpectrum = Mat2f();
+    imgStdDev = sqrMat(imgStdDev);
+    filtrate(imgStdDev, imgDispSpectrum);
+    normalize(imgStdDev, imgStdDev, 0, 1, NORM_MINMAX);
+    imgStdDev = sqrtMat(imgStdDev);
+    image = (image + 1e-1) / (imgStdDev + 1e-1);
+
+    auto prnStdDev = pattern.clone();
+    auto prnDispSpectrum = Mat2f();
+    prnStdDev = sqrMat(prnStdDev);
+    filtrate(prnStdDev, prnDispSpectrum);
+    normalize(prnStdDev, prnStdDev, 0, 1, NORM_MINMAX);
+    prnStdDev = sqrtMat(prnStdDev);
+    pattern = (pattern + 1e-1) / (prnStdDev + 1e-1);
+   
+    //normalize(image, image, 0, 1, NORM_MINMAX);
+    //normalize(pattern, pattern, 0, 1, NORM_MINMAX);
+    imshow("Normalized Image [FFT]", image);
+    imshow("Normalized Pattern [FFT]", pattern);
+    //imshow("Image Dispersion [FFT]", imgStdDev);
+    //imshow("Pattern Dispersion [FFT]", prnStdDev);
+
+    directFFT(image, imageSpectrum);
+    directFFT(pattern, patternSpectrum);
+
+    auto corr = Mat1f(Size2i(m_image.cols, m_image.rows), 0);
+    auto corrSpectrum = Mat2f();
+    multiplySpectrums(imageSpectrum, patternSpectrum, corrSpectrum, true);
+    inverseFFT(corrSpectrum, corr);
+
+    normalize(corr, corr, 0, 1, NORM_MINMAX);
+    //threshold(corr, corr, 0.95, 1, THRESH_BINARY);
+    m_image = corr;
+    m_spectrum = corrSpectrum;*/
+}
+
+void FastFurierTransformer::filtrate(Mat1f& image, cv::Mat2f& spectrum)
+{
+    if (image.empty() == true)
+    {
+        return;
+    }
+
+    directFFT(image, spectrum);
+    shiftSpectrum(spectrum, spectrum.cols / 2, spectrum.rows / 2);
+
+    m_filter.setSize(spectrum.size());
+    for (auto row = 0; row < spectrum.rows; row++)
+    {
+        auto spcPtr = spectrum.ptr<Vec2f>(row);
         auto filter = m_filter.getFilter();
         auto fltPtr = filter.ptr<float>(row);
-        for (auto col = 0; col < m_spectrum.cols; col++)
+        for (auto col = 0; col < spectrum.cols; col++)
         {
             spcPtr[col] *= fltPtr[col];
         }
     }
 
-    shiftSpectrum(m_spectrum, m_spectrum.cols / 2, m_spectrum.rows / 2);
-    inverseFFT(m_spectrum, m_image);
+    shiftSpectrum(spectrum, spectrum.cols / 2, spectrum.rows / 2);
+    inverseFFT(spectrum, image);
+}
+
+Mat1f FastFurierTransformer::getMagnitude(Mat2f& spectrum)
+{
+    shiftSpectrum(spectrum, spectrum.cols / 2, spectrum.rows / 2);
+    auto buffer = Mat1f(spectrum.size());
+    auto max = FLT_MIN;
+    auto min = FLT_MAX;
+    for (auto row = 0; row < spectrum.rows; row++)
+    {
+        auto magnPtr = buffer.ptr<float>(row);
+        auto spcPtr = spectrum.ptr<Vec2f>(row);
+        for (auto col = 0; col < spectrum.cols; col++)
+        {
+            auto magn = hypotf(spcPtr[col][0], spcPtr[col][1]);
+            auto logMagn = log1pf(magn);
+            if (logMagn > max)
+            {
+                max = logMagn;
+            }
+            if (logMagn < min)
+            {
+                min = logMagn;
+            }
+            magnPtr[col] = logMagn;
+        }
+    }
+    shiftSpectrum(spectrum, spectrum.cols / 2, spectrum.rows / 2);
+    normalizeSpectrum(buffer, min, max);
+    return buffer;
 }
 
 void FastFurierTransformer::directFFT(const Mat1f& image, Mat2f& spectrum)
@@ -396,7 +533,7 @@ void FastFurierTransformer::inverseFFT(const Mat2f& spectrum, Mat1f& image)
     m_image /= max > 1 ? max : 1;
 }
 
-void FastFurierTransformer::fft(Vec2f *ptr, const int32_t size, const bool isInverse)
+void FastFurierTransformer::fft(Vec2f* ptr, const int32_t size, const bool isInverse)
 {
     if (size == 1) return;
 
@@ -513,7 +650,7 @@ void shiftSpectrum(Mat1f& spectrum, const int32_t shiftX, const int32_t shiftY)
     bottom.copyTo(spectrum(Rect(0, 0, spectrum.cols, spectrum.rows - height)));
 }
 
-void multiplySpectrums(Mat2f& first, Mat2f& second, Mat2f& result, bool isCorr)
+void multiplySpectrums(const Mat2f& first, const Mat2f& second, Mat2f& result, bool isCorr)
 {
     auto cols = max(first.cols, second.cols);
     auto rows = max(first.rows, second.rows);
